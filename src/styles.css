@@ -58,3 +58,156 @@ th.num { text-align: right; }
 .btn-del { border: 1px solid #fca5a5; background: #fff; color: #b91c1c; border-radius: 7px; width: 30px; height: 30px; cursor: pointer; }
 .btn-del:hover { background: #fee2e2; }
 .empty { padding: 40px; text-align: center; color: #94a3b8; font-style: italic; }
+
+/* ---------- KPIs ---------- */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.kpi {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+}
+.kpi-lab {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+  color: #64748b; font-weight: 600;
+}
+.kpi-val { font-size: 26px; font-weight: 700; margin-top: 6px; color: #0f172a; }
+.kpi-red .kpi-val { color: #dc2626; }
+.kpi-orange .kpi-val { color: #ea580c; }
+.kpi-green .kpi-val { color: #16a34a; }
+
+/* ---------- Filtres chips ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  border: 1px solid #cbd5e1; background: #fff; color: #334155;
+  padding: 7px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: .15s;
+}
+.chip:hover { background: #f1f5f9; }
+.chip.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-block; padding: 4px 10px; border-radius: 99px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.badge-green  { background: #dcfce7; color: #15803d; }
+.badge-orange { background: #ffedd5; color: #c2410c; }
+.badge-red    { background: #fee2e2; color: #b91c1c; }
+.badge-yellow { background: #fef9c3; color: #a16207; }
+.badge-blue   { background: #dbeafe; color: #1d4ed8; }
+
+/* ---------- Barre visuelle ---------- */
+.bar-wrap { display: flex; flex-direction: column; gap: 4px; }
+.bar-track {
+  position: relative;
+  height: 10px; border-radius: 99px; background: #e2e8f0; overflow: visible;
+}
+.bar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 99px; transition: width .3s ease, background .3s;
+}
+.bar-min-mark {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: #0f172a; border-radius: 2px;
+}
+.bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: #94a3b8; font-weight: 600;
+}
+.bar-min-label { color: #0f172a; }
+
+.pname { font-weight: 600; color: #0f172a; }
+.pcat { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* ---------- Rôle utilisateur ---------- */
+.role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.role-admin { background: #dbeafe; color: #1d4ed8; }
+.role-user  { background: #f1f5f9; color: #475569; }
+
+/* ---------- Bannière info (non-admin) ---------- */
+.banner-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Rôle utilisateur ---------- */
+.role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.role-admin { background: #dbeafe; color: #1d4ed8; }
+.role-user  { background: #f1f5f9; color: #475569; }
+
+/* ---------- Bannière info (non-admin) ---------- */
+.banner-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Sections du formulaire ---------- */
+.section-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: #2563eb;
+  margin: 22px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e2e8f0;
+}
+.product-form h2 + .section-title { margin-top: 8px; }
+
+/* ---------- Select ---------- */
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  transition: .15s;
+}
+.field select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #2563eb22;
+}
+
+/* ---------- Read-only alertes ---------- */
+.ro-alert { background: #fee2e2 !important; color: #b91c1c !important; font-weight: 800 !important; }
+.ro-ok    { background: #dcfce7 !important; color: #15803d !important; font-weight: 800 !important; }
+
+/* ---------- Masquer sur mobile ---------- */
+@media (max-width: 900px) { .hide-sm { display: none !important; } }

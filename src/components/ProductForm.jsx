@@ -3,11 +3,25 @@ import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const initial = {
-  ref: "", designation: "", prixUnitaire: "", localisation: "",
-  delaiAppro: "", transitTime: "", traitementCde: "",
-  stockMin: "", stockActuel: "", cmj: "",
-  stockRoulement: "", nouveauStockMin: "",
+  reference: "",
+  produit: "",
+  affectation: "",
+  designation: "",
+  fournisseur: "",
+  localisation: "",
+  delaiAppro: "",
+  delaiApproJours: "",
+  prixAchat: "",
+  devise: "EUR",
+  tauxChange: "3.4",
+  unite: "pcs",
+  stockMin: "",
+  stockActuel: "",
+  commentaire: "",
+  consoMoyMensuel: "",
 };
+
+const DEVISES = ["EUR", "TND", "USD"];
 
 export default function ProductForm({ onSaved }) {
   const [form, setForm] = useState(initial);
@@ -17,41 +31,71 @@ export default function ProductForm({ onSaved }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const n = (v) => parseFloat(v) || 0;
 
-  const stockMinPropose = Math.ceil(
-    n(form.cmj) * (n(form.delaiAppro) + n(form.transitTime) + n(form.traitementCde))
-  );
-  const nouveauMin = form.nouveauStockMin === "" ? stockMinPropose : n(form.nouveauStockMin);
-  const valeurAncien = n(form.stockMin) * n(form.prixUnitaire);
-  const valeurNouveau = nouveauMin * n(form.prixUnitaire);
+  /* ---------- Calculs automatiques ---------- */
+  const taux = n(form.tauxChange) || 1;
+  const prixAchatEUR =
+    form.devise === "EUR" ? n(form.prixAchat)
+    : form.devise === "TND" ? n(form.prixAchat) / taux
+    : n(form.prixAchat) * taux;
 
-  const fmt = (v) =>
+  const valeurStockMin = n(form.stockMin) * prixAchatEUR;
+  const besoinMensuel = n(form.consoMoyMensuel);
+  const couvertureStockMin =
+    besoinMensuel > 0 ? (n(form.stockMin) / besoinMensuel) * 30 : 0; // en jours
+  const valeurConsoMoyEUR = besoinMensuel * prixAchatEUR;
+  const valeurConsoMoyTND = valeurConsoMoyEUR * taux;
+  const stockMinAtteint = n(form.stockActuel) <= n(form.stockMin) && n(form.stockMin) > 0;
+
+  const fmtEUR = (v) =>
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v || 0);
+  const fmtTND = (v) =>
+    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "TND" }).format(v || 0);
+  const fmtNum = (v) =>
+    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(v || 0);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.ref.trim() || !form.designation.trim()) {
-      setMsg("⚠️ Réf et Désignation sont obligatoires.");
+    if (!form.reference.trim() || !form.designation.trim()) {
+      setMsg("⚠️ Référence et Désignation sont obligatoires.");
       return;
     }
     setBusy(true);
     setMsg("");
     try {
       await addDoc(collection(db, "products"), {
-        ref: form.ref.trim(),
+        // Identification
+        reference: form.reference.trim(),
+        produit: form.produit.trim(),
+        affectation: form.affectation.trim(),
         designation: form.designation.trim(),
-        prixUnitaire: n(form.prixUnitaire),
+        fournisseur: form.fournisseur.trim(),
         localisation: form.localisation.trim(),
-        delaiAppro: n(form.delaiAppro),
-        transitTime: n(form.transitTime),
-        traitementCde: n(form.traitementCde),
+        unite: form.unite.trim() || "pcs",
+        commentaire: form.commentaire.trim(),
+
+        // Délais
+        delaiAppro: form.delaiAppro.trim(),
+        delaiApproJours: n(form.delaiApproJours),
+
+        // Prix & devise
+        prixAchat: n(form.prixAchat),
+        devise: form.devise,
+        tauxChange: taux,
+        prixAchatEUR: prixAchatEUR,
+
+        // Stock
         stockMin: n(form.stockMin),
         stockActuel: n(form.stockActuel),
-        cmj: n(form.cmj),
-        stockMinPropose,
-        stockRoulement: n(form.stockRoulement),
-        nouveauStockMin: nouveauMin,
-        valeurAncienStockMin: valeurAncien,
-        valeurNouveauStockMin: valeurNouveau,
+        valeurStockMin: valeurStockMin,
+        couvertureStockMin: couvertureStockMin,
+        besoinMensuel: besoinMensuel,
+        stockMinAtteint: stockMinAtteint,
+
+        // Consommation
+        consoMoyMensuel: besoinMensuel,
+        valeurConsoMoyEUR: valeurConsoMoyEUR,
+        valeurConsoMoyTND: valeurConsoMoyTND,
+
         createdAt: serverTimestamp(),
       });
       setForm(initial);
@@ -68,39 +112,74 @@ export default function ProductForm({ onSaved }) {
   return (
     <form className="product-form" onSubmit={submit}>
       <h2>➕ Enregistrer un produit</h2>
+
+      {/* ---------- SECTION 1 : Identification ---------- */}
+      <h3 className="section-title">🏷️ Identification</h3>
       <div className="grid-3">
         <div className="field">
-          <label>Réf *</label>
-          <input value={form.ref} onChange={set("ref")} placeholder="REF-001" required />
+          <label>Référence *</label>
+          <input value={form.reference} onChange={set("reference")} placeholder="REF-001" required />
+        </div>
+        <div className="field">
+          <label>Produit</label>
+          <input value={form.produit} onChange={set("produit")} placeholder="Famille / Type" />
+        </div>
+        <div className="field">
+          <label>Affectation</label>
+          <input value={form.affectation} onChange={set("affectation")} placeholder="Ligne / Atelier" />
         </div>
         <div className="field span-2">
           <label>Désignation *</label>
           <input value={form.designation} onChange={set("designation")} placeholder="Ex : Vis M4 x 20 mm" required />
         </div>
         <div className="field">
-          <label>Prix Unitaire (€)</label>
-          <input type="number" step="0.01" min="0" value={form.prixUnitaire} onChange={set("prixUnitaire")} />
+          <label>Unité</label>
+          <input value={form.unite} onChange={set("unite")} placeholder="pcs / kg / L" />
         </div>
         <div className="field">
+          <label>Fournisseur</label>
+          <input value={form.fournisseur} onChange={set("fournisseur")} placeholder="Nom du fournisseur" />
+        </div>
+        <div className="field span-2">
           <label>Localisation</label>
-          <input value={form.localisation} onChange={set("localisation")} placeholder="Rayon A3" />
+          <input value={form.localisation} onChange={set("localisation")} placeholder="Rayon A3 / Zone B" />
+        </div>
+      </div>
+
+      {/* ---------- SECTION 2 : Délais & Prix ---------- */}
+      <h3 className="section-title">⏱️ Délais & Prix d'achat</h3>
+      <div className="grid-3">
+        <div className="field">
+          <label>Délai d'appro (texte)</label>
+          <input value={form.delaiAppro} onChange={set("delaiAppro")} placeholder="Ex : 2 semaines" />
         </div>
         <div className="field">
           <label>Délai d'appro (jours)</label>
-          <input type="number" min="0" value={form.delaiAppro} onChange={set("delaiAppro")} />
+          <input type="number" min="0" value={form.delaiApproJours} onChange={set("delaiApproJours")} placeholder="14" />
         </div>
         <div className="field">
-          <label>Transit time (jours)</label>
-          <input type="number" min="0" value={form.transitTime} onChange={set("transitTime")} />
+          <label>Prix d'achat</label>
+          <input type="number" step="0.01" min="0" value={form.prixAchat} onChange={set("prixAchat")} placeholder="0.00" />
         </div>
         <div className="field">
-          <label>Traitement de cde (jours)</label>
-          <input type="number" min="0" value={form.traitementCde} onChange={set("traitementCde")} />
+          <label>Devise</label>
+          <select value={form.devise} onChange={set("devise")}>
+            {DEVISES.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
         </div>
         <div className="field">
-          <label>CMJ</label>
-          <input type="number" step="0.01" min="0" value={form.cmj} onChange={set("cmj")} />
+          <label>Taux de change (1 EUR = ?)</label>
+          <input type="number" step="0.0001" min="0" value={form.tauxChange} onChange={set("tauxChange")} />
         </div>
+        <div className="field">
+          <label>Prix d'achat converti en EUR (auto)</label>
+          <input value={fmtEUR(prixAchatEUR)} readOnly className="ro" />
+        </div>
+      </div>
+
+      {/* ---------- SECTION 3 : Stock ---------- */}
+      <h3 className="section-title">📦 Stock</h3>
+      <div className="grid-3">
         <div className="field">
           <label>Stock min</label>
           <input type="number" min="0" value={form.stockMin} onChange={set("stockMin")} />
@@ -110,24 +189,52 @@ export default function ProductForm({ onSaved }) {
           <input type="number" min="0" value={form.stockActuel} onChange={set("stockActuel")} />
         </div>
         <div className="field">
-          <label>Stock de roulement</label>
-          <input type="number" min="0" value={form.stockRoulement} onChange={set("stockRoulement")} />
+          <label>Stock min atteint ? (auto)</label>
+          <input
+            value={stockMinAtteint ? "🔴 OUI" : "🟢 NON"}
+            readOnly
+            className={"ro " + (stockMinAtteint ? "ro-alert" : "ro-ok")}
+          />
         </div>
         <div className="field">
-          <label>Stock min proposé (auto)</label>
-          <input value={stockMinPropose} readOnly className="ro" />
+          <label>Valeur stock min (auto)</label>
+          <input value={fmtEUR(valeurStockMin)} readOnly className="ro" />
         </div>
         <div className="field">
-          <label>Nouveau stock min</label>
-          <input type="number" min="0" value={form.nouveauStockMin} onChange={set("nouveauStockMin")} placeholder={String(stockMinPropose)} />
+          <label>Couverture de stock min (auto)</label>
+          <input value={fmtNum(couvertureStockMin) + " jours"} readOnly className="ro" />
         </div>
         <div className="field">
-          <label>Valeur ancien stock min</label>
-          <input value={fmt(valeurAncien)} readOnly className="ro" />
+          <label>Besoin mensuel (auto)</label>
+          <input value={fmtNum(besoinMensuel)} readOnly className="ro" />
+        </div>
+        <div className="field span-2">
+          <label>Commentaire</label>
+          <input value={form.commentaire} onChange={set("commentaire")} placeholder="Observation, note interne..." />
+        </div>
+      </div>
+
+      {/* ---------- SECTION 4 : Consommation mensuelle ---------- */}
+      <h3 className="section-title">📊 Consommation moyenne mensuelle (M)</h3>
+      <div className="grid-3">
+        <div className="field">
+          <label>Consommation moyenne mensuelle (qté)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.consoMoyMensuel}
+            onChange={set("consoMoyMensuel")}
+            placeholder="Ex : 250"
+          />
         </div>
         <div className="field">
-          <label>Valeur nouveau stock min</label>
-          <input value={fmt(valeurNouveau)} readOnly className="ro" />
+          <label>Valeur conso moyenne en EUR (auto)</label>
+          <input value={fmtEUR(valeurConsoMoyEUR)} readOnly className="ro" />
+        </div>
+        <div className="field">
+          <label>Valeur conso moyenne en TND (auto)</label>
+          <input value={fmtTND(valeurConsoMoyTND)} readOnly className="ro" />
         </div>
       </div>
 
