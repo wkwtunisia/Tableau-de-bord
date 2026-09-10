@@ -211,3 +211,10 @@ th.num { text-align: right; }
 
 /* ---------- Masquer sur mobile ---------- */
 @media (max-width: 900px) { .hide-sm { display: none !important; } }
+
+/* ---------- Champ read-only négatif ---------- */
+.ro-negative {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  font-weight: 800 !important;
+}

@@ -12,16 +12,14 @@ const initial = {
   delaiAppro: "",
   delaiApproJours: "",
   prixAchat: "",
-  devise: "EUR",
-  tauxChange: "3.4",
   unite: "pcs",
   stockMin: "",
   stockActuel: "",
   commentaire: "",
-  consoMoyMensuel: "",
+  consoMoyMensuel: "",     // ← peut être négatif
+  valeurConsoEUR: "",      // ← peut être négatif
+  tauxChangeConso: "3.4",
 };
-
-const DEVISES = ["EUR", "TND", "USD"];
 
 export default function ProductForm({ onSaved }) {
   const [form, setForm] = useState(initial);
@@ -29,29 +27,48 @@ export default function ProductForm({ onSaved }) {
   const [msg, setMsg] = useState("");
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const n = (v) => parseFloat(v) || 0;
 
-  /* ---------- Calculs automatiques ---------- */
-  const taux = n(form.tauxChange) || 1;
-  const prixAchatEUR =
-    form.devise === "EUR" ? n(form.prixAchat)
-    : form.devise === "TND" ? n(form.prixAchat) / taux
-    : n(form.prixAchat) * taux;
+  // 🔒 Nombre NON signé (≥ 0) — prix, stock, délais, taux
+  const n = (v) => Math.max(0, parseFloat(v) || 0);
 
-  const valeurStockMin = n(form.stockMin) * prixAchatEUR;
-  const besoinMensuel = n(form.consoMoyMensuel);
-  const couvertureStockMin =
-    besoinMensuel > 0 ? (n(form.stockMin) / besoinMensuel) * 30 : 0; // en jours
-  const valeurConsoMoyEUR = besoinMensuel * prixAchatEUR;
-  const valeurConsoMoyTND = valeurConsoMoyEUR * taux;
-  const stockMinAtteint = n(form.stockActuel) <= n(form.stockMin) && n(form.stockMin) > 0;
+  // 🔓 Nombre SIGNÉ (accepte négatif) — conso qté + valeur conso EUR
+  const sn = (v) => {
+    const num = parseFloat(v);
+    return isNaN(num) ? 0 : num;
+  };
 
-  const fmtEUR = (v) =>
+  /* ---------- Prix d'achat ---------- */
+  const prixAchat = n(form.prixAchat);
+  const prixAchatEUR = prixAchat;
+
+  /* ---------- Stock ---------- */
+  const stockMin = n(form.stockMin);
+  const stockActuel = n(form.stockActuel);
+  const valeurStockMin = stockMin * prixAchatEUR;
+  const stockMinAtteint = stockMin > 0 && stockActuel <= stockMin;
+
+  /* ---------- Consommation mensuelle ---------- */
+  // ⚠️ Qté peut être négative
+  const besoinMensuel = sn(form.consoMoyMensuel);
+  // Couverture : gérée uniquement si besoin > 0
+  const couvertureStockMin = besoinMensuel > 0 ? (stockMin / besoinMensuel) * 30 : 0;
+
+  // ⚠️ Valeur conso EUR : peut être négative
+  const valeurConsoMoyEUR = sn(form.valeurConsoEUR);
+  const tauxConso = n(form.tauxChangeConso) || 1;
+  // ⚠️ TND : préserve le signe
+  const valeurConsoMoyTND = valeurConsoMoyEUR * tauxConso;
+
+  /* ---------- Formatters ---------- */
+  const fmtEURsigned = (v) =>
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v || 0);
-  const fmtTND = (v) =>
+  const fmtTNDsigned = (v) =>
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "TND" }).format(v || 0);
-  const fmtNum = (v) =>
+  const fmtNumSigned = (v) =>
     new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(v || 0);
+
+  // Non signé (pour les champs toujours positifs)
+  const fmtEUR = (v) => fmtEURsigned(Math.max(0, v) || 0);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -63,7 +80,6 @@ export default function ProductForm({ onSaved }) {
     setMsg("");
     try {
       await addDoc(collection(db, "products"), {
-        // Identification
         reference: form.reference.trim(),
         produit: form.produit.trim(),
         affectation: form.affectation.trim(),
@@ -73,28 +89,23 @@ export default function ProductForm({ onSaved }) {
         unite: form.unite.trim() || "pcs",
         commentaire: form.commentaire.trim(),
 
-        // Délais
         delaiAppro: form.delaiAppro.trim(),
         delaiApproJours: n(form.delaiApproJours),
 
-        // Prix & devise
-        prixAchat: n(form.prixAchat),
-        devise: form.devise,
-        tauxChange: taux,
-        prixAchatEUR: prixAchatEUR,
+        prixAchat,
+        prixAchatEUR,
 
-        // Stock
-        stockMin: n(form.stockMin),
-        stockActuel: n(form.stockActuel),
-        valeurStockMin: valeurStockMin,
-        couvertureStockMin: couvertureStockMin,
-        besoinMensuel: besoinMensuel,
-        stockMinAtteint: stockMinAtteint,
+        stockMin,
+        stockActuel,
+        valeurStockMin,
+        couvertureStockMin,
+        besoinMensuel,              // peut être négatif
+        stockMinAtteint,
 
-        // Consommation
-        consoMoyMensuel: besoinMensuel,
-        valeurConsoMoyEUR: valeurConsoMoyEUR,
-        valeurConsoMoyTND: valeurConsoMoyTND,
+        consoMoyMensuel: besoinMensuel,   // peut être négatif
+        valeurConsoMoyEUR,                // peut être négatif
+        tauxChangeConso: tauxConso,
+        valeurConsoMoyTND,                // peut être négatif
 
         createdAt: serverTimestamp(),
       });
@@ -158,22 +169,15 @@ export default function ProductForm({ onSaved }) {
           <input type="number" min="0" value={form.delaiApproJours} onChange={set("delaiApproJours")} placeholder="14" />
         </div>
         <div className="field">
-          <label>Prix d'achat</label>
-          <input type="number" step="0.01" min="0" value={form.prixAchat} onChange={set("prixAchat")} placeholder="0.00" />
-        </div>
-        <div className="field">
-          <label>Devise</label>
-          <select value={form.devise} onChange={set("devise")}>
-            {DEVISES.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label>Taux de change (1 EUR = ?)</label>
-          <input type="number" step="0.0001" min="0" value={form.tauxChange} onChange={set("tauxChange")} />
-        </div>
-        <div className="field">
-          <label>Prix d'achat converti en EUR (auto)</label>
-          <input value={fmtEUR(prixAchatEUR)} readOnly className="ro" />
+          <label>Prix d'achat (EUR)</label>
+          <input
+            type="number"
+            step="0.0001"
+            min="0"
+            value={form.prixAchat}
+            onChange={set("prixAchat")}
+            placeholder="0.0000"
+          />
         </div>
       </div>
 
@@ -202,11 +206,15 @@ export default function ProductForm({ onSaved }) {
         </div>
         <div className="field">
           <label>Couverture de stock min (auto)</label>
-          <input value={fmtNum(couvertureStockMin) + " jours"} readOnly className="ro" />
+          <input value={fmtNumSigned(couvertureStockMin) + " jours"} readOnly className="ro" />
         </div>
         <div className="field">
           <label>Besoin mensuel (auto)</label>
-          <input value={fmtNum(besoinMensuel)} readOnly className="ro" />
+          <input
+            value={fmtNumSigned(besoinMensuel)}
+            readOnly
+            className={"ro " + (besoinMensuel < 0 ? "ro-negative" : "")}
+          />
         </div>
         <div className="field span-2">
           <label>Commentaire</label>
@@ -217,24 +225,48 @@ export default function ProductForm({ onSaved }) {
       {/* ---------- SECTION 4 : Consommation mensuelle ---------- */}
       <h3 className="section-title">📊 Consommation moyenne mensuelle (M)</h3>
       <div className="grid-3">
+        {/* ✅ Qté : accepte + et − */}
         <div className="field">
-          <label>Consommation moyenne mensuelle (qté)</label>
+          <label>Consommation moyenne mensuelle (qté) (+ ou −)</label>
           <input
             type="number"
             step="0.01"
-            min="0"
             value={form.consoMoyMensuel}
             onChange={set("consoMoyMensuel")}
-            placeholder="Ex : 250"
+            placeholder="Ex : 250 ou -50"
           />
         </div>
+
+        {/* ✅ Valeur EUR : accepte + et − */}
         <div className="field">
-          <label>Valeur conso moyenne en EUR (auto)</label>
-          <input value={fmtEUR(valeurConsoMoyEUR)} readOnly className="ro" />
+          <label>Valeur conso moyenne en EUR (+ ou −)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={form.valeurConsoEUR}
+            onChange={set("valeurConsoEUR")}
+            placeholder="Ex : -396.74 ou 1500.00"
+          />
         </div>
+
+        <div className="field">
+          <label>Taux de change — conso (1 EUR = ? TND)</label>
+          <input
+            type="number"
+            step="0.0001"
+            min="0"
+            value={form.tauxChangeConso}
+            onChange={set("tauxChangeConso")}
+          />
+        </div>
+
         <div className="field">
           <label>Valeur conso moyenne en TND (auto)</label>
-          <input value={fmtTND(valeurConsoMoyTND)} readOnly className="ro" />
+          <input
+            value={fmtTNDsigned(valeurConsoMoyTND)}
+            readOnly
+            className={"ro " + (valeurConsoMoyTND < 0 ? "ro-negative" : "")}
+          />
         </div>
       </div>
 
